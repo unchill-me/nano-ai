@@ -4,6 +4,10 @@
 
 set -e
 
+echo "📦 Instalando dependencias del sistema (requiere sudo)..."
+apt-get update
+apt-get install -y python3-dev build-essential
+
 echo "🚀 Instalando uv..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
