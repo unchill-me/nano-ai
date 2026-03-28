@@ -122,6 +122,7 @@ pytest -v
 - Never commit secrets or API keys
 - Write meaningful commit messages in Spanish or English
 - Keep commits atomic and focused
+- Use single-line commit messages (no multi-line descriptions)
 
 ## Environment Variables
 
