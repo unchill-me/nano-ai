@@ -168,7 +168,7 @@ def generate_with_bonito(
         Lista de ejemplos formateados (instruction, input, output)
     """
     try:
-        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer
         import torch
     except ImportError:
         print("❌ Error: Bonito requiere transformers y torch.")
@@ -179,9 +179,9 @@ def generate_with_bonito(
     
     # Carga del modelo y tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(
+    model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype=torch.float16 if device == 'cuda' else torch.float32,
+        dtype=torch.float16 if device == 'cuda' else torch.float32,
         device_map='auto' if device is None else device
     )
     
