@@ -21,8 +21,13 @@ LORA_R = 16
 LORA_ALPHA = 16
 LORA_DROPOUT = 0
 LORA_TARGET_MODULES = [
-    "q_proj", "k_proj", "v_proj", "o_proj",
-    "gate_proj", "up_proj", "down_proj",
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
 ]
 
 # Training Config
@@ -50,22 +55,25 @@ ALPACA_PROMPT = """A continuación se presenta una instrucción que describe una
 
 EOS_TOKEN = ""
 
+
 def formatting_prompts_func(examples):
     """Formatea los ejemplos para el entrenamiento."""
     instructions = examples["instruction"]
     inputs = examples["input"]
     outputs = examples["output"]
     texts = []
-    
+
     for instruction, input_text, output in zip(instructions, inputs, outputs):
-        text = ALPACA_PROMPT.format(
-            instruction=instruction,
-            input=input_text,
-            output=output
-        ) + EOS_TOKEN
+        text = (
+            ALPACA_PROMPT.format(
+                instruction=instruction, input=input_text, output=output
+            )
+            + EOS_TOKEN
+        )
         texts.append(text)
-    
+
     return {"text": texts}
+
 
 # ==================== CARGA MODELO ====================
 print("🔄 Cargando modelo en 4-bit...")
@@ -139,7 +147,9 @@ trainer = SFTTrainer(
 trainer_stats = trainer.train()
 
 print("✅ Entrenamiento completado!")
-print(f"⏱️  Tiempo de entrenamiento: {trainer_stats.metrics['train_runtime']:.2f} segundos")
+print(
+    f"⏱️  Tiempo de entrenamiento: {trainer_stats.metrics['train_runtime']:.2f} segundos"
+)
 
 # ==================== GUARDAR ADAPTADOR LoRA ====================
 print(f"💾 Guardando adaptador LoRA en {OUTPUT_DIR}...")
@@ -150,31 +160,56 @@ tokenizer.save_pretrained(OUTPUT_DIR)
 print(f"🔄 Exportando a GGUF (quantization={QUANTIZATION_METHOD})...")
 print(f"📁 Archivo de salida: {GGUF_FILENAME}")
 
-# Guardar modelo fusionado en GGUF
-model.save_pretrained_gguf(
-    OUTPUT_DIR,
-    tokenizer,
-    quantization_method=QUANTIZATION_METHOD,
-)
-
-# Renombrar el archivo GGUF generado al nombre deseado
 import os
 import glob
 
-gguf_files = glob.glob(os.path.join(OUTPUT_DIR, "*.gguf"))
-if gguf_files:
-    source_file = gguf_files[0]  # Toma el primer archivo GGUF encontrado
-    target_file = os.path.join(OUTPUT_DIR, GGUF_FILENAME)
-    
-    if source_file != target_file:
-        os.rename(source_file, target_file)
-        print(f"✅ Archivo renombrado: {GGUF_FILENAME}")
+try:
+    # Guardar modelo fusionado en GGUF
+    model.save_pretrained_gguf(
+        OUTPUT_DIR,
+        tokenizer,
+        quantization_method=QUANTIZATION_METHOD,
+    )
 
-print("\n" + "="*60)
+    # Renombrar el archivo GGUF generado al nombre deseado
+    gguf_files = glob.glob(os.path.join(OUTPUT_DIR, "*.gguf"))
+    if gguf_files:
+        source_file = gguf_files[0]  # Toma el primer archivo GGUF encontrado
+        target_file = os.path.join(OUTPUT_DIR, GGUF_FILENAME)
+
+        if source_file != target_file:
+            os.rename(source_file, target_file)
+            print(f"✅ Archivo renombrado: {GGUF_FILENAME}")
+
+    gguf_success = True
+
+except Exception as e:
+    print(f"⚠️ Error en exportación GGUF: {e}")
+    print("💡 Intentando exportación alternativa...")
+    gguf_success = False
+
+if not gguf_success:
+    # Alternativa: fusionar y guardar en formato HuggingFace
+    print("🔄 Fusionando modelo LoRA con base...")
+    model.save_pretrained_merged(
+        OUTPUT_DIR,
+        tokenizer,
+        save_method="merged_16bit",
+    )
+    print(f"✅ Modelo fusionado guardado en {OUTPUT_DIR}")
+    print("💡 Para convertir a GGUF manualmente, usa:")
+    print("   python -m llama_cpp.convert --outtype q4_k_m ./lora_model")
+
+print("\n" + "=" * 60)
 print("🎉 PROCESO COMPLETADO EXITOSAMENTE")
-print("="*60)
+print("=" * 60)
 print(f"📍 Adaptador LoRA: {OUTPUT_DIR}/")
-print(f"📍 Modelo GGUF:   {OUTPUT_DIR}/{GGUF_FILENAME}")
-print(f"\n💡 Para usar en Mac M2:")
-print(f"   1. Descarga: scp -r runpod-ip:{OUTPUT_DIR}/{GGUF_FILENAME} ./")
+if gguf_success:
+    print(f"📍 Modelo GGUF:   {OUTPUT_DIR}/{GGUF_FILENAME}")
+    print(f"\n💡 Para usar en Mac M2:")
+    print(f"   1. Descarga: scp -r runpod-ip:{OUTPUT_DIR}/{GGUF_FILENAME} ./")
+else:
+    print(f"📍 Modelo fusionado: {OUTPUT_DIR}/ (formato HF)")
+    print(f"\n💡 Para convertir a GGUF manualmente:")
+    print(f"   cd {OUTPUT_DIR} && python -m llama_cpp.convert --outtype q4_k_m .")
 print(f"   2. Ejecuta con llama.cpp o ollama")

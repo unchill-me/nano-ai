@@ -6,7 +6,7 @@ set -e
 
 echo "📦 Instalando dependencias del sistema (requiere sudo)..."
 apt-get update
-apt-get install -y python3-dev build-essential
+apt-get install -y python3-dev build-essential cmake libssl-dev libcurl4-openssl-dev
 
 echo "🚀 Instalando uv..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
